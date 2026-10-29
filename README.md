@@ -1,19 +1,110 @@
-# codexco 💰
+# codexco 🪙
 
-Monitor y calculador de costos en tiempo real para sesiones de **Codex** (OpenAI).
+> High-performance, non-invasive session cost analyzer and real-time monitor for the **OpenAI Codex CLI**.
 
-## ¿Cómo funciona?
+`codexco` reads local Codex session rollouts, streams real-time token events per turn, breaks down usage across multiple models (non-cached, prompt cache hits, output, and reasoning), and applies official pricing tiers to calculate accurate session expenditure.
 
-Codex persiste el estado y los eventos de cada turno en `~/.codex/sessions/{año}/{mes}/{día}/rollout-*.jsonl`.
-`codexco` inspecciona de forma no invasiva dichos rollouts, extrae el conteo granular de tokens (`TokenUsage` con desglose de input no cacheado, cache hit, output y razonamiento) y aplica la tabla de tarifas oficial para calcular el costo real de tus sesiones.
+---
 
-## Comandos
+## Features
 
-- `codexco current` (o simplemente `codexco`): Muestra el desglose de tokens y costo de la sesión activa o más reciente.
-- `codexco history`: Lista las últimas sesiones con el consumo de tokens y el costo acumulado por sesión.
-- `codexco summary`: Resumen agregado de tokens consumidos y gasto total acumulado en USD.
-- `codexco watch`: Modo monitor que actualiza la terminal en tiempo real a medida que interactuás con Codex.
+- **Accurate Token-Accounting**: Ingests exact usage telemetry from OpenAI returned at the end of each turn.
+- **Prompt Cache Awareness**: Differentiates between non-cached input tokens and cached inputs for true pricing fidelity.
+- **Multi-Model Session Tracking**: Supports dynamic model switching within a single session (e.g., transitioning between `gpt-6.1-terra` and `gpt-6-luna`), calculating costs per model.
+- **Zero-Invasive Architecture**: No patched binaries or external dependencies needed. Reads native Codex session streams directly from `~/.codex/sessions`.
+- **Live Terminal Monitor**: Watch mode to inspect ongoing sessions and track token consumption turn-by-turn.
 
-## Tarifas soportadas
+---
 
-Incluye tarifas preconfiguradas para GPT-4o, GPT-4o-mini, o1, o3-mini y modelos compatibles, diferenciando el descuento por cached inputs.
+## Installation
+
+### Prerequisites
+
+- [Rust & Cargo](https://rustup.rs/) (edition 2021+)
+- OpenAI Codex CLI installed (`@openai/codex`)
+
+### Build & Install
+
+```bash
+git clone https://github.com/your-username/codexco.git
+cd codexco
+cargo install --path .
+```
+
+---
+
+## Usage
+
+### 1. Inspect Active / Latest Session
+
+Displays a detailed token breakdown and total cost for the most recent session:
+
+```bash
+codexco current
+# or simply
+codexco
+```
+
+**Example Output:**
+
+```text
+=================================================================
+Sesión: 01a1836f-f82c-7191-b6f3-f674aebdfb61
+Fecha:   2026-10-28T16:55:15.768Z
+Workspace: C:\Projects\MyProject
+Modelos usados: gpt-6.1-terra, gpt-6-luna
+-----------------------------------------------------------------
+DESGLOSE POR MODELO:
+  • gpt-6.1-terra      230588 tok (in: 1102, cached: 228941, out: 545) -> $0.01428 USD
+  • gpt-6-luna       57536068 tok (in: 774493, cached: 56646168, out: 115407) -> $0.70195 USD
+-----------------------------------------------------------------
+Tokens Entrada (Total):          57650704
+  - No cacheados:                  775595
+  - Cacheados (ahorro):          56875109
+Tokens Salida:                     115952
+  - Razonamiento:                   47943
+Total Tokens Acumulados:         57766656
+-----------------------------------------------------------------
+COSTO TOTAL ESTIMADO:         $0.71623 USD
+=================================================================
+```
+
+### 2. Session History
+
+List recent sessions with their respective token volume and spend:
+
+```bash
+codexco history --limit 15
+```
+
+### 3. Aggregate Spend Summary
+
+Display all-time metrics across all recorded sessions:
+
+```bash
+codexco summary
+```
+
+### 4. Real-time Session Watcher
+
+Continuously updates the terminal display as you collaborate with Codex:
+
+```bash
+codexco watch --interval 2
+```
+
+---
+
+## Supported Pricing Models
+
+`codexco` includes official token pricing for:
+- **GPT-6 Series**: `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna`, `gpt-6-sol`
+- **GPT-5 Series**: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.5-pro`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.2`, `gpt-5.1`, `gpt-5`, etc.
+- **GPT-4 Series**: `gpt-4.1`, `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini`
+- **Reasoning Models**: `o1`, `o3-mini`
+
+---
+
+## License
+
+Apache-2.0 or MIT
