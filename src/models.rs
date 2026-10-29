@@ -42,6 +42,7 @@ impl AddAssign for TokenUsage {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TokenUsageInfo {
     pub total_token_usage: TokenUsage,
@@ -50,6 +51,7 @@ pub struct TokenUsageInfo {
     pub model_context_window: Option<i64>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SessionMetaPayload {
     pub session_id: Option<String>,
@@ -68,6 +70,7 @@ pub struct ModelUsageSummary {
     pub cost_usd: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SessionSummary {
     pub session_id: String,

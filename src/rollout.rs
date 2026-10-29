@@ -28,6 +28,7 @@ impl RolloutScanner {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_custom_path(codex_home: PathBuf) -> Self {
         Self {
             codex_home,
