@@ -35,37 +35,58 @@ enum Commands {
 }
 
 fn print_session_card(session: &models::SessionSummary) {
-    println!("{}", "=".repeat(60).bright_blue());
+    println!("{}", "=".repeat(65).bright_blue());
     println!(
         "{} {}",
         "Sesión:".bold(),
         session.session_id.bright_yellow()
     );
     if let Some(ts) = &session.timestamp {
-        println!("{} {}", "Fecha: ".bold(), ts.bright_black());
+        println!("{} {}", "Fecha:  ".bold(), ts.bright_black());
     }
     if let Some(cwd) = &session.cwd {
         println!("{} {}", "Workspace:".bold(), cwd.cyan());
     }
-    println!("{} {}", "Modelo:".bold(), session.model.magenta());
-    println!("{}", "-".repeat(60).bright_blue());
+    println!(
+        "{} {}",
+        "Modelos usados:".bold(),
+        session.models_used.join(", ").magenta()
+    );
+    println!("{}", "-".repeat(65).bright_blue());
+
+    if session.breakdown.len() > 1 {
+        println!("{}", "DESGLOSE POR MODELO:".bold().yellow());
+        for m in &session.breakdown {
+            let u = &m.token_usage;
+            println!(
+                "  • {:<16} {:>10} tok (in: {}, cached: {}, out: {}) -> {}",
+                m.model.bright_magenta(),
+                u.total_tokens,
+                u.non_cached_input(),
+                u.cached_input(),
+                u.output_tokens,
+                format!("${:.5} USD", m.cost_usd).green().bold()
+            );
+        }
+        println!("{}", "-".repeat(65).bright_blue());
+    }
 
     let u = &session.token_usage;
-    println!("{:<28} {:>12}", "Tokens Entrada (Total):", u.input_tokens.to_string().white());
-    println!("{:<28} {:>12}", "  - No cacheados:", u.non_cached_input().to_string().white());
-    println!("{:<28} {:>12}", "  - Cacheados (ahorro):", u.cached_input().to_string().green());
-    println!("{:<28} {:>12}", "Tokens Salida:", u.output_tokens.to_string().white());
+    println!("{:<30} {:>14}", "Tokens Entrada (Total):", u.input_tokens.to_string().white());
+    println!("{:<30} {:>14}", "  - No cacheados:", u.non_cached_input().to_string().white());
+    println!("{:<30} {:>14}", "  - Cacheados (ahorro):", u.cached_input().to_string().green());
+    println!("{:<30} {:>14}", "Tokens Salida:", u.output_tokens.to_string().white());
     if u.reasoning_output_tokens > 0 {
-        println!("{:<28} {:>12}", "  - Razonamiento:", u.reasoning_output_tokens.to_string().bright_black());
+        println!("{:<30} {:>14}", "  - Razonamiento:", u.reasoning_output_tokens.to_string().bright_black());
     }
-    println!("{:<28} {:>12}", "Total Tokens:", u.total_tokens.to_string().bold());
-    println!("{}", "-".repeat(60).bright_blue());
+    println!("{:<30} {:>14}", "Total Tokens Acumulados:", u.total_tokens.to_string().bold());
+    println!("{}", "-".repeat(65).bright_blue());
     println!(
-        "{:<28} {:>12}",
-        "COSTO ESTIMADO:".bold().green(),
+        "{:<30} {:>14}",
+        "COSTO TOTAL ESTIMADO:".bold().green(),
         format!("${:.5} USD", session.estimated_cost_usd).bold().bright_green()
     );
-    println!("{}", "=".repeat(60).bright_blue());
+    println!("{}", "=".repeat(65).bright_blue());
 }
 
 fn main() {
@@ -97,16 +118,22 @@ fn main() {
 
             println!("{}", "HISTORIAL DE SESIONES DE CODEX".bold().underline());
             println!(
-                "{:<38} {:<15} {:>12} {:>14}",
-                "ID SESIÓN", "MODELO", "TOKENS", "COSTO (USD)"
+                "{:<38} {:<18} {:>12} {:>14}",
+                "ID SESIÓN", "MODELOS", "TOKENS", "COSTO (USD)"
             );
-            println!("{}", "-".repeat(82));
+            println!("{}", "-".repeat(86));
 
             for s in history {
+                let models_str = if s.models_used.len() == 1 {
+                    s.models_used[0].clone()
+                } else {
+                    format!("{} (+{})", s.models_used[0], s.models_used.len() - 1)
+                };
+
                 println!(
-                    "{:<38} {:<15} {:>12} {:>14}",
+                    "{:<38} {:<18} {:>12} {:>14}",
                     s.session_id.chars().take(36).collect::<String>().bright_yellow(),
-                    s.model.bright_magenta(),
+                    models_str.bright_magenta(),
                     s.token_usage.total_tokens,
                     format!("${:.4}", s.estimated_cost_usd).bold().green()
                 );
@@ -139,7 +166,6 @@ fn main() {
             loop {
                 if let Some(session) = scanner.get_latest_session() {
                     if session.token_usage.total_tokens != last_tokens {
-                        // Limpiar pantalla simple en terminal
                         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
                         print_session_card(&session);
                         last_tokens = session.token_usage.total_tokens;

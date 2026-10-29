@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::ops::AddAssign;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TokenUsage {
@@ -30,6 +31,17 @@ impl TokenUsage {
     }
 }
 
+impl AddAssign for TokenUsage {
+    fn add_assign(&mut self, rhs: Self) {
+        self.input_tokens += rhs.input_tokens;
+        self.cached_input_tokens += rhs.cached_input_tokens;
+        self.cache_write_input_tokens += rhs.cache_write_input_tokens;
+        self.output_tokens += rhs.output_tokens;
+        self.reasoning_output_tokens += rhs.reasoning_output_tokens;
+        self.total_tokens += rhs.total_tokens;
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TokenUsageInfo {
     pub total_token_usage: TokenUsage,
@@ -50,12 +62,20 @@ pub struct SessionMetaPayload {
 }
 
 #[derive(Debug, Clone)]
+pub struct ModelUsageSummary {
+    pub model: String,
+    pub token_usage: TokenUsage,
+    pub cost_usd: f64,
+}
+
+#[derive(Debug, Clone)]
 pub struct SessionSummary {
     pub session_id: String,
     pub path: std::path::PathBuf,
     pub timestamp: Option<String>,
     pub cwd: Option<String>,
-    pub model: String,
+    pub models_used: Vec<String>,
+    pub breakdown: Vec<ModelUsageSummary>,
     pub token_usage: TokenUsage,
     pub estimated_cost_usd: f64,
 }

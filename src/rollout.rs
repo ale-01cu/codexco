@@ -1,6 +1,9 @@
-use crate::models::{SessionMetaPayload, SessionSummary, TokenUsage, TokenUsageInfo};
+use crate::models::{
+    ModelUsageSummary, SessionMetaPayload, SessionSummary, TokenUsage, TokenUsageInfo,
+};
 use crate::pricing::PricingRegistry;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -53,7 +56,6 @@ impl RolloutScanner {
             .map(|e| e.into_path())
             .collect();
 
-        // Ordenar por tiempo de modificación (el más reciente primero)
         files.sort_by(|a, b| {
             let meta_a = a.metadata().and_then(|m| m.modified()).ok();
             let meta_b = b.metadata().and_then(|m| m.modified()).ok();
@@ -63,7 +65,7 @@ impl RolloutScanner {
         files
     }
 
-    /// Parsea un archivo de rollout individual y extrae el resumen de la sesión
+    /// Parsea un archivo de rollout acumulando el consumo turno por turno desglosado por modelo
     pub fn parse_rollout_file(&self, path: &Path) -> Option<SessionSummary> {
         let file = File::open(path).ok()?;
         let reader = BufReader::new(file);
@@ -71,8 +73,9 @@ impl RolloutScanner {
         let mut session_id = String::new();
         let mut timestamp = None;
         let mut cwd = None;
-        let mut model = "gpt-4o".to_string();
-        let mut latest_usage = TokenUsage::default();
+        let mut current_model = "gpt-4o".to_string();
+        let mut usage_by_model: HashMap<String, TokenUsage> = HashMap::new();
+        let mut latest_total_usage = TokenUsage::default();
 
         for line in reader.lines().flatten() {
             if line.trim().is_empty() {
@@ -92,24 +95,33 @@ impl RolloutScanner {
                             cwd = meta.cwd;
                         }
                     }
-                } else if event_type == "event_msg" {
+                }
+
+                // Detectar cambios de modelo en el turno
+                if let Some(m) = val.pointer("/payload/thread_settings/model").and_then(|v| v.as_str()) {
+                    current_model = m.to_string();
+                } else if let Some(m) = val.pointer("/payload/collaboration_mode/settings/model").and_then(|v| v.as_str()) {
+                    current_model = m.to_string();
+                } else if let Some(m) = val.pointer("/payload/model").and_then(|v| v.as_str()) {
+                    current_model = m.to_string();
+                } else if let Some(m) = val.pointer("/payload/settings/model").and_then(|v| v.as_str()) {
+                    current_model = m.to_string();
+                }
+
+                // Registrar tokens del turno
+                if event_type == "event_msg" {
                     if let Some(payload) = val.get("payload") {
                         let msg_type = payload.get("type").and_then(|v| v.as_str()).unwrap_or("");
                         if msg_type == "token_count" {
                             if let Some(info_val) = payload.get("info") {
                                 if let Ok(info) = serde_json::from_value::<TokenUsageInfo>(info_val.clone()) {
-                                    latest_usage = info.total_token_usage;
+                                    latest_total_usage = info.total_token_usage;
+                                    let model_entry = usage_by_model.entry(current_model.clone()).or_default();
+                                    *model_entry += info.last_token_usage;
                                 }
                             }
                         }
                     }
-                }
-
-                // Intenta detectar el modelo si aparece en configuraciones del turno
-                if let Some(m) = val.pointer("/payload/model").and_then(|v| v.as_str()) {
-                    model = m.to_string();
-                } else if let Some(m) = val.pointer("/payload/settings/model").and_then(|v| v.as_str()) {
-                    model = m.to_string();
                 }
             }
         }
@@ -121,20 +133,51 @@ impl RolloutScanner {
                 .unwrap_or_else(|| "unknown-session".to_string());
         }
 
-        let cost = self.pricing.calculate_cost(&model, &latest_usage);
+        // Si no se pudo acumular por turno pero existe latest_total_usage, asignarlo al modelo actual
+        if usage_by_model.is_empty() && !latest_total_usage.is_zero() {
+            usage_by_model.insert(current_model.clone(), latest_total_usage.clone());
+        }
+
+        let mut breakdown = Vec::new();
+        let mut total_cost = 0.0;
+        let mut models_used = Vec::new();
+
+        for (model, usage) in usage_by_model {
+            models_used.push(model.clone());
+            let cost = self.pricing.calculate_cost(&model, &usage);
+            total_cost += cost;
+            breakdown.push(ModelUsageSummary {
+                model,
+                token_usage: usage,
+                cost_usd: cost,
+            });
+        }
+
+        // Ordenar breakdown por costo descendente
+        breakdown.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
+
+        let overall_token_usage = if !latest_total_usage.is_zero() {
+            latest_total_usage
+        } else {
+            let mut sum = TokenUsage::default();
+            for item in &breakdown {
+                sum += item.token_usage.clone();
+            }
+            sum
+        };
 
         Some(SessionSummary {
             session_id,
             path: path.to_path_buf(),
             timestamp,
             cwd,
-            model,
-            token_usage: latest_usage,
-            estimated_cost_usd: cost,
+            models_used,
+            breakdown,
+            token_usage: overall_token_usage,
+            estimated_cost_usd: total_cost,
         })
     }
 
-    /// Obtiene la sesión activa o más reciente
     pub fn get_latest_session(&self) -> Option<SessionSummary> {
         let files = self.list_rollout_files();
         for file in files {
@@ -145,7 +188,6 @@ impl RolloutScanner {
         None
     }
 
-    /// Obtiene el historial de todas las sesiones ordenadas de más reciente a más antigua
     pub fn get_session_history(&self, limit: usize) -> Vec<SessionSummary> {
         let files = self.list_rollout_files();
         files
