@@ -18,15 +18,32 @@
 
 ## Installation
 
-### Prerequisites
+### Option 1: Quick Install (No Rust required)
 
-- [Rust & Cargo](https://rustup.rs/) (edition 2021+)
-- OpenAI Codex CLI installed (`@openai/codex`)
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/ale-01cu/codexco/main/install.ps1 | iex
+```
 
-### Build & Install
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ale-01cu/codexco/main/install.sh | bash
+```
+
+---
+
+### Option 2: Via Cargo (For Rust developers)
 
 ```bash
-git clone https://github.com/your-username/codexco.git
+cargo install --git https://github.com/ale-01cu/codexco.git
+```
+
+---
+
+### Option 3: Build from source
+
+```bash
+git clone https://github.com/ale-01cu/codexco.git
 cd codexco
 cargo install --path .
 ```
