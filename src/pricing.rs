@@ -95,12 +95,12 @@ impl Default for PricingRegistry {
 impl PricingRegistry {
     pub fn get_rates(&self, model: &str) -> &ModelRates {
         let normalized = model.to_lowercase();
-        // Búsqueda exacta primero
+        // Exact match first
         if let Some(rates) = self.rates.get(&normalized) {
             return rates;
         }
 
-        // Búsqueda por prefijo más específico a menos específico
+        // Prefix match ordered from most to least specific
         let mut matches: Vec<(&String, &ModelRates)> = self
             .rates
             .iter()

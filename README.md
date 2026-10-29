@@ -66,23 +66,23 @@ codexco
 
 ```text
 =================================================================
-Sesión: 01a1836f-f82c-7191-b6f3-f674aebdfb61
-Fecha:   2026-10-28T16:55:15.768Z
-Workspace: C:\Projects\MyProject
-Modelos usados: gpt-6.1-terra, gpt-6-luna
+Session:    01a1836f-f82c-7191-b6f3-f674aebdfb61
+Timestamp:  2026-10-28T16:55:15.768Z
+Workspace:  C:\Projects\MyProject
+Models:     gpt-6.1-terra, gpt-6-luna
 -----------------------------------------------------------------
-DESGLOSE POR MODELO:
+BREAKDOWN BY MODEL:
   • gpt-6.1-terra      230588 tok (in: 1102, cached: 228941, out: 545) -> $0.01428 USD
   • gpt-6-luna       57536068 tok (in: 774493, cached: 56646168, out: 115407) -> $0.70195 USD
 -----------------------------------------------------------------
-Tokens Entrada (Total):          57650704
-  - No cacheados:                  775595
-  - Cacheados (ahorro):          56875109
-Tokens Salida:                     115952
-  - Razonamiento:                   47943
-Total Tokens Acumulados:         57766656
+Input Tokens (Total):            57650704
+  - Non-cached:                    775595
+  - Cached (savings):            56875109
+Output Tokens:                     115952
+  - Reasoning:                      47943
+Total Accumulated Tokens:        57766656
 -----------------------------------------------------------------
-COSTO TOTAL ESTIMADO:         $0.71623 USD
+ESTIMATED TOTAL COST:         $0.71623 USD
 =================================================================
 ```
 

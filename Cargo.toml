@@ -3,7 +3,7 @@ name = "codexco"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ale z17"]
-description = "Calculador y monitor de costos de sesiones para Codex"
+description = "Real-time session cost analyzer and monitor for OpenAI Codex"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }

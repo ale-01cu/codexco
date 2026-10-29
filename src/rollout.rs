@@ -40,7 +40,7 @@ impl RolloutScanner {
         self.codex_home.join("sessions")
     }
 
-    /// Encuentra todos los archivos rollout-*.jsonl ordenados por fecha de modificación descendente
+    /// Finds all rollout-*.jsonl files ordered by modification time (most recent first)
     pub fn list_rollout_files(&self) -> Vec<PathBuf> {
         let sessions_dir = self.sessions_dir();
         if !sessions_dir.exists() {
@@ -66,7 +66,7 @@ impl RolloutScanner {
         files
     }
 
-    /// Parsea un archivo de rollout acumulando el consumo turno por turno desglosado por modelo
+    /// Parses an individual rollout file, aggregating token usage per model turn-by-turn
     pub fn parse_rollout_file(&self, path: &Path) -> Option<SessionSummary> {
         let file = File::open(path).ok()?;
         let reader = BufReader::new(file);
@@ -98,7 +98,7 @@ impl RolloutScanner {
                     }
                 }
 
-                // Detectar cambios de modelo en el turno
+                // Detect in-session model switches
                 if let Some(m) = val.pointer("/payload/thread_settings/model").and_then(|v| v.as_str()) {
                     current_model = m.to_string();
                 } else if let Some(m) = val.pointer("/payload/collaboration_mode/settings/model").and_then(|v| v.as_str()) {
@@ -109,7 +109,7 @@ impl RolloutScanner {
                     current_model = m.to_string();
                 }
 
-                // Registrar tokens del turno
+                // Record turn tokens
                 if event_type == "event_msg" {
                     if let Some(payload) = val.get("payload") {
                         let msg_type = payload.get("type").and_then(|v| v.as_str()).unwrap_or("");
@@ -134,7 +134,7 @@ impl RolloutScanner {
                 .unwrap_or_else(|| "unknown-session".to_string());
         }
 
-        // Si no se pudo acumular por turno pero existe latest_total_usage, asignarlo al modelo actual
+        // If turn-by-turn aggregation was empty but a total exists, attribute to current model
         if usage_by_model.is_empty() && !latest_total_usage.is_zero() {
             usage_by_model.insert(current_model.clone(), latest_total_usage.clone());
         }
@@ -154,7 +154,7 @@ impl RolloutScanner {
             });
         }
 
-        // Ordenar breakdown por costo descendente
+        // Sort breakdown by cost descending
         breakdown.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
 
         let overall_token_usage = if !latest_total_usage.is_zero() {

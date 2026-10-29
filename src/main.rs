@@ -10,7 +10,7 @@ use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "codexco")]
-#[command(about = "Monitor y calculador de costos de sesiones para Codex", long_about = None)]
+#[command(about = "Real-time session cost analyzer and monitor for OpenAI Codex", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -18,16 +18,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Muestra el costo y uso de tokens de la sesión activa o más reciente
+    /// Show cost and token usage for the active or most recent session
     Current,
-    /// Muestra el historial de sesiones recientes con sus costos
+    /// Display recent session history with associated costs
     History {
         #[arg(short, long, default_value_t = 10)]
         limit: usize,
     },
-    /// Resumen global acumulado de costos (hoy, últimos días, total)
+    /// Show aggregate spend across all recorded sessions
     Summary,
-    /// Monitorea en tiempo real el costo de la sesión activa
+    /// Monitor the active session in real-time
     Watch {
         #[arg(short, long, default_value_t = 2)]
         interval: u64,
@@ -38,24 +38,24 @@ fn print_session_card(session: &models::SessionSummary) {
     println!("{}", "=".repeat(65).bright_blue());
     println!(
         "{} {}",
-        "Sesión:".bold(),
+        "Session:   ".bold(),
         session.session_id.bright_yellow()
     );
     if let Some(ts) = &session.timestamp {
-        println!("{} {}", "Fecha:  ".bold(), ts.bright_black());
+        println!("{} {}", "Timestamp: ".bold(), ts.bright_black());
     }
     if let Some(cwd) = &session.cwd {
-        println!("{} {}", "Workspace:".bold(), cwd.cyan());
+        println!("{} {}", "Workspace: ".bold(), cwd.cyan());
     }
     println!(
         "{} {}",
-        "Modelos usados:".bold(),
+        "Models:    ".bold(),
         session.models_used.join(", ").magenta()
     );
     println!("{}", "-".repeat(65).bright_blue());
 
     if session.breakdown.len() > 1 {
-        println!("{}", "DESGLOSE POR MODELO:".bold().yellow());
+        println!("{}", "BREAKDOWN BY MODEL:".bold().yellow());
         for m in &session.breakdown {
             let u = &m.token_usage;
             println!(
@@ -72,18 +72,18 @@ fn print_session_card(session: &models::SessionSummary) {
     }
 
     let u = &session.token_usage;
-    println!("{:<30} {:>14}", "Tokens Entrada (Total):", u.input_tokens.to_string().white());
-    println!("{:<30} {:>14}", "  - No cacheados:", u.non_cached_input().to_string().white());
-    println!("{:<30} {:>14}", "  - Cacheados (ahorro):", u.cached_input().to_string().green());
-    println!("{:<30} {:>14}", "Tokens Salida:", u.output_tokens.to_string().white());
+    println!("{:<30} {:>14}", "Input Tokens (Total):", u.input_tokens.to_string().white());
+    println!("{:<30} {:>14}", "  - Non-cached:", u.non_cached_input().to_string().white());
+    println!("{:<30} {:>14}", "  - Cached (savings):", u.cached_input().to_string().green());
+    println!("{:<30} {:>14}", "Output Tokens:", u.output_tokens.to_string().white());
     if u.reasoning_output_tokens > 0 {
-        println!("{:<30} {:>14}", "  - Razonamiento:", u.reasoning_output_tokens.to_string().bright_black());
+        println!("{:<30} {:>14}", "  - Reasoning:", u.reasoning_output_tokens.to_string().bright_black());
     }
-    println!("{:<30} {:>14}", "Total Tokens Acumulados:", u.total_tokens.to_string().bold());
+    println!("{:<30} {:>14}", "Total Accumulated Tokens:", u.total_tokens.to_string().bold());
     println!("{}", "-".repeat(65).bright_blue());
     println!(
         "{:<30} {:>14}",
-        "COSTO TOTAL ESTIMADO:".bold().green(),
+        "ESTIMATED TOTAL COST:".bold().green(),
         format!("${:.5} USD", session.estimated_cost_usd).bold().bright_green()
     );
     println!("{}", "=".repeat(65).bright_blue());
@@ -95,7 +95,7 @@ fn main() {
         Some(s) => s,
         None => {
             eprintln!(
-                "{} No se encontró el directorio ~/.codex en tu sistema.",
+                "{} Could not locate ~/.codex directory on your system.",
                 "ERROR:".bold().red()
             );
             std::process::exit(1);
@@ -106,20 +106,20 @@ fn main() {
         Commands::Current => {
             match scanner.get_latest_session() {
                 Some(session) => print_session_card(&session),
-                None => println!("{}", "No se encontraron sesiones registradas de Codex.".yellow()),
+                None => println!("{}", "No Codex sessions found.".yellow()),
             }
         }
         Commands::History { limit } => {
             let history = scanner.get_session_history(limit);
             if history.is_empty() {
-                println!("{}", "No se encontraron sesiones en el historial.".yellow());
+                println!("{}", "No sessions found in history.".yellow());
                 return;
             }
 
-            println!("{}", "HISTORIAL DE SESIONES DE CODEX".bold().underline());
+            println!("{}", "CODEX SESSION HISTORY".bold().underline());
             println!(
                 "{:<38} {:<18} {:>12} {:>14}",
-                "ID SESIÓN", "MODELOS", "TOKENS", "COSTO (USD)"
+                "SESSION ID", "MODELS", "TOKENS", "COST (USD)"
             );
             println!("{}", "-".repeat(86));
 
@@ -150,17 +150,17 @@ fn main() {
                 total_cost += s.estimated_cost_usd;
             }
 
-            println!("{}", "RESUMEN ACUMULADO DE GASTOS".bold().underline());
-            println!("{:<25} {}", "Sesiones analizadas:", session_count.to_string().cyan());
-            println!("{:<25} {}", "Tokens consumidos:", total_tokens.to_string().white());
+            println!("{}", "AGGREGATE SPEND SUMMARY".bold().underline());
+            println!("{:<25} {}", "Analyzed sessions:", session_count.to_string().cyan());
+            println!("{:<25} {}", "Consumed tokens:", total_tokens.to_string().white());
             println!(
                 "{:<25} {}",
-                "Gasto Total Estimado:".bold(),
+                "Estimated Total Spend:".bold(),
                 format!("${:.4} USD", total_cost).bold().bright_green()
             );
         }
         Commands::Watch { interval } => {
-            println!("{}", "Monitoreando sesión activa de Codex (Ctrl+C para salir)...".cyan());
+            println!("{}", "Watching active Codex session in real-time (Press Ctrl+C to exit)...".cyan());
             let mut last_tokens = -1i64;
 
             loop {
